@@ -3,10 +3,59 @@ from bs4 import BeautifulSoup
 from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
-
+from EuroVocAnalyzeTool import Graph, EuroVocAnalyzeTool
+import pickle
 
 LANGUAGES = "en"
 SAVE_PATH = "datasets/jrc_en_basic.csv"
+
+## Micro-Thesaurus
+def get_MThesaurus(descriptors, analyzeTool):
+    ret=[]
+    for desc_id in descriptors.split(';'):
+        mthes=analyzeTool.getThesaurusByDescId(desc_id)
+        if mthes:
+            for mthes_id in mthes:
+                if not mthes_id in ret:
+                    ret.append(mthes_id)
+    return ';'.join(ret)
+
+## Domains
+def get_domains(descriptors, analyzeTool):
+    ret=[]
+    for desc_id in descriptors.split(';'):
+        domains=analyzeTool.getDomainsByDescId(desc_id)
+        if domains:
+            for domain_id in domains:
+                if not domain_id in ret:
+                    ret.append(domain_id)
+    return ';'.join(ret)
+
+## Topterms
+def get_topterms(descriptors, analyzeTool):
+    ret=[]
+    for desc_id in descriptors.split(';'):
+        topterms=analyzeTool.getTopTermsByDescid(desc_id)
+        if topterms:
+            for topterm_id in topterms:
+                if not topterm_id in ret:
+                    ret.append(topterm_id)
+        else:
+            ret.append(desc_id)
+    return ';'.join(ret)
+
+## extended Descriptors
+def get_extDesc(descriptors, analyzeTool):
+    ret=[]
+    for desc_id in descriptors.split(';'):
+        topterms=analyzeTool.getParents(desc_id)
+        if topterms:
+            for topterm_id in topterms:
+                if not topterm_id in ret:
+                    ret.append(topterm_id)
+        else:
+            ret.append(desc_id)
+    return ';'.join(ret)
 
 def parseXML(path, filename, sep='\n', section_sep=' #S# '):
     with open(path + '/' + filename) as fin:
@@ -32,9 +81,19 @@ def parseXML(path, filename, sep='\n', section_sep=' #S# '):
     return body + section_sep + signature + section_sep + annex, tagclasscode
 
 def prepareDataset(languages, save_path):
+    def getSplit(celex_id, trainset, valset, testset):
+        if celex_id in trainset:
+            return 'train'
+        elif celex_id in valset:
+            return 'val'
+        elif celex_id in testset:
+            return 'test'
+        else:
+            return 'no split'
+
     dir_path = SAVE_PATH[:save_path.rfind('/') + 1]
     Path(dir_path).mkdir(parents=True, exist_ok=True)
-    COLNAMES=['filename', 'lang', 'year','text','Labels']
+    COLNAMES=['celex_id', 'lang', 'year','text','Descriptors']
     data=pd.DataFrame(columns=COLNAMES)
 
     for lang in languages.split(","):
@@ -49,6 +108,25 @@ def prepareDataset(languages, save_path):
                     except Exception as ex:
                         print(ex)
                         print(path+'/'+filename)
+
+    with open('data/EuroVocAnalysisTool.pickle', 'rb') as handle:
+        analyzeTool = pickle.load(handle)
+
+    # Extend Dataset
+    data['Domains'] = data['Descriptors'].apply(lambda w: get_domains(w, analyzeTool))
+    data['MThesaurus'] = data['Descriptors'].apply(lambda w: get_MThesaurus(w, analyzeTool))
+    data['Topterm'] = data['Descriptors'].apply(lambda w: get_topterms(w, analyzeTool))
+    data['ExtDesc'] = data['Descriptors'].apply(lambda w: get_extDesc(w, analyzeTool))
+
+    # Add Iterative Split
+    with open('Iterative_Split/JRC_Aquis/train.txt') as fin:
+        trainset = [line.strip() for line in fin]
+    with open('Iterative_Split/JRC_Aquis/validation.txt') as fin:
+        valset = [line.strip() for line in fin]
+    with open('Iterative_Split/JRC_Aquis/test.txt') as fin:
+        testset = [line.strip() for line in fin]
+    data['split'] = data['celex_id'].apply(lambda w: getSplit(w, trainset, valset, testset))
+
     data.to_csv(save_path, index=False)
 
 import argparse
