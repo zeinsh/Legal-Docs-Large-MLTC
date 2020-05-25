@@ -5,6 +5,7 @@ import pandas as pd
 from tqdm import tqdm
 from EuroVocAnalyzeTool import Graph, EuroVocAnalyzeTool
 import pickle
+import argparse
 
 LANGUAGES = "en"
 SAVE_PATH = "datasets/jrc_en_basic.csv"
@@ -129,7 +130,6 @@ def prepareDataset(languages, save_path):
 
     data.to_csv(save_path, index=False)
 
-import argparse
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser("Download and prepare JRC-Aquis dataset")
