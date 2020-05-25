@@ -21,3 +21,9 @@ python prepare_eurovoc.py
 # prepare jrc-aquis datasets
 python prepare_jrc_data.py --languages "en" --save_path "datasets/jrc_en_basic.csv"            # monolingual English
 python prepare_jrc_data.py --languages "en,de,fr" --save_path "datasets/jrc_3langs_basic.csv"  # multi-lingual
+
+################# EURLEX57K ####################
+wget -O tmp/datasets.zip http://nlp.cs.aueb.gr/software_and_datasets/EURLEX57K/datasets.zip
+unzip tmp/datasets.zip -d tmp/EURLEX57K
+
+python prepare_eurlex57k_data.py --dataset_path "./tmp/EURLEX57K/dataset/" --save_path "datasets/EurLex57K.csv"
