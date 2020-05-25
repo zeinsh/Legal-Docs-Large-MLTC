@@ -1,0 +1,3 @@
+https://wt-public.emm4u.eu/Acquis/JRC-Acquis.3.0/corpus/jrc-en.tgz
+https://wt-public.emm4u.eu/Acquis/JRC-Acquis.3.0/corpus/jrc-de.tgz
+https://wt-public.emm4u.eu/Acquis/JRC-Acquis.3.0/corpus/jrc-fr.tgz
