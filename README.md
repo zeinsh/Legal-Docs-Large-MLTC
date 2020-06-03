@@ -11,6 +11,15 @@ The following script will:
 bash preparedata.sh
 ```
 
+**OUTPUT FILES**
+
+- JRC Monolingual Dataset: datasets/jrc_en_basic.csv
+- JRC Multilingul Dataset: datasets/jrc_3langs_basic.csv
+- EURLEX57K Dataset: datasets/EurLex57K.csv
+- Pickle of EuroVocAnalyzeTool instance: data/EuroVocAnalysisTool.pickle
+  - This instance store EuroVoc data.
+  - This object provides access to relations within EuroVoc hierarchy.
+
 **TODO**
 - [ ] Provide splits directory from bash script.
 
