@@ -5,8 +5,8 @@ from pathlib import Path
 
 
 def getData(dataPath, split):
-    keys=['celex_id', 'uri', 'type', 'Descriptors', 'title', 'header', 'recitals', 'main_body', 'attachments']
-    data={key:[] for key in keys+['split','text']}
+    keys = ['celex_id', 'uri', 'type', 'Labels', 'title', 'header', 'recitals', 'main_body', 'attachments']
+    data = {key: [] for key in keys + ['split', 'text']}
     for p in dataPath.glob('*.json'):
         datafile = json.loads(p.open().read())
         for key in keys:
