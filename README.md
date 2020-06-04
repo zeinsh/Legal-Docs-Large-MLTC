@@ -20,9 +20,6 @@ bash preparedata.sh
   - This instance store EuroVoc data.
   - This object provides access to relations within EuroVoc hierarchy.
 
-**TODO**
-- [ ] Provide splits directory from bash script.
-
 ## 2. Iterative split
 
 Default splits for the datasets are provided in Iterative_Split/JRC_Aquis and Iterative_Split/EurLex57K
