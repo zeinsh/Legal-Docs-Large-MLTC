@@ -3,6 +3,8 @@ import numpy as np
 from pathlib import Path
 from skmultilearn.model_selection import iterative_train_test_split, IterativeStratification
 import argparse
+
+
 # !pip install scikit-multilearn
 
 ## check train-set labels
@@ -19,20 +21,23 @@ def getLabelDicts(data):
 
     return label2id, id2label
 
+
 def convert_lst_to_int(lst, label2id):
     return [label2id.get(x, -1) for x in lst]
 
-def getSplit(idx, ids_train, ids_val, ids_test):
-        if idx in ids_train:
-            return 'train'
-        elif idx in idx_val:
-            return 'val'
-        elif idx in idx_test:
-            return 'test'
-        else:
-            return 'none'
 
-if __name__=="__main__":
+def getSplit(idx, ids_train, ids_val, ids_test):
+    if idx in ids_train:
+        return 'train'
+    elif idx in idx_val:
+        return 'val'
+    elif idx in idx_test:
+        return 'test'
+    else:
+        return 'none'
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser("Iterative split")
     parser.add_argument("--OUTPUT_DIR", help="directory to save the splits", type=str)
     parser.add_argument("--DATASET_PATH", help="path to the dataset", type=str)
@@ -53,14 +58,14 @@ if __name__=="__main__":
     label2id, id2label = getLabelDicts(data)
 
     print("Prepare data before splitting ...")
-    idx=np.array([i for i in range(len(data))])
-    idx=idx.reshape(len(idx),1)
-    y=[
+    idx = np.array([i for i in range(len(data))])
+    idx = idx.reshape(len(idx), 1)
+    y = [
         convert_lst_to_int(data[LABEL].iloc[i].split(';'), label2id)
         for i in range(len(data))
     ]
-    ln=max([len(yi) for yi in y])
-    Y=np.array([yi+[-1]*(ln-len(yi)) for yi in y])  # make 2D array
+    ln = max([len(yi) for yi in y])
+    Y = np.array([yi + [-1] * (ln - len(yi)) for yi in y])  # make 2D array
 
     print("Getting training ids, it might take a long time")
     idx_train, _, idx_val_test, y_val_test = iterative_train_test_split(idx, Y, test_size=0.2)  # about 30 minutes

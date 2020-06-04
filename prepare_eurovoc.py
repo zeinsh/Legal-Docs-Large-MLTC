@@ -4,18 +4,19 @@ from pathlib import Path
 from EuroVocAnalyzeTool import Graph, EuroVocAnalyzeTool
 import pickle
 
-TMP_PATH='./tmp/EuroVoc/'
-eurovocSaveDir='./data/EuroVoc/'
+TMP_PATH = './tmp/EuroVoc/'
+eurovocSaveDir = './data/EuroVoc/'
 
-DOMAIN_FILENAME='dom_en.xml'
-THESAURUS_FILENAME='thes_en.xml'
-DESCRIPTEUR_FILENAME='desc_en.xml'
-DESC_THES_FILENAME='desc_thes.xml'
-USEDFOR_FILENAME='uf_en.xml'
-SCOPE_NOTE_FILENAME='sn_en.xml'
-RELATION_UI_FILENAME='relation_ui.xml'
-RELATION_BT_FILENAME='relation_bt.xml'
-RELATION_RT_FILENAME='relation_rt.xml'
+DOMAIN_FILENAME = 'dom_en.xml'
+THESAURUS_FILENAME = 'thes_en.xml'
+DESCRIPTEUR_FILENAME = 'desc_en.xml'
+DESC_THES_FILENAME = 'desc_thes.xml'
+USEDFOR_FILENAME = 'uf_en.xml'
+SCOPE_NOTE_FILENAME = 'sn_en.xml'
+RELATION_UI_FILENAME = 'relation_ui.xml'
+RELATION_BT_FILENAME = 'relation_bt.xml'
+RELATION_RT_FILENAME = 'relation_rt.xml'
+
 
 def parseXMLDOMAINS(tmppath, domain_filename='dom_en.xml'):
     COLNAMES = ['Domain_id', 'Label']
@@ -24,7 +25,7 @@ def parseXMLDOMAINS(tmppath, domain_filename='dom_en.xml'):
 
     with open(tmppath + '/' + domain_filename) as fin:
         xmlFile = fin.read()
-    parsedXml = BeautifulSoup(xmlFile,features="html.parser")
+    parsedXml = BeautifulSoup(xmlFile, features="html.parser")
 
     records = parsedXml.find_all('record')
     for record in records:
@@ -36,13 +37,13 @@ def parseXMLDOMAINS(tmppath, domain_filename='dom_en.xml'):
 
 
 def parseXMLTHESAURUS(path, thesaurus_filename):
-    COLNAMES = ['Thesaurus_id', 'Label', 'Domain_id', 'Domain_Label']
+    COLNAMES = ['Thesaurus_id', 'Descriptors', 'Domain_id', 'Domain_Label']
     data = pd.DataFrame(columns=COLNAMES)
     id2label = {}
 
     with open(path + '/' + thesaurus_filename) as fin:
         xmlFile = fin.read()
-    parsedXml = BeautifulSoup(xmlFile,features="html.parser")
+    parsedXml = BeautifulSoup(xmlFile, features="html.parser")
 
     records = parsedXml.find_all('record')
     for record in records:
@@ -65,7 +66,7 @@ def parseXMLDESCRIPTORS(path, descripteur_filename):
 
     with open(path + '/' + descripteur_filename) as fin:
         xmlFile = fin.read()
-    parsedXml = BeautifulSoup(xmlFile,features="html.parser")
+    parsedXml = BeautifulSoup(xmlFile, features="html.parser")
 
     records = parsedXml.find_all('record')
     for record in records:
@@ -86,7 +87,7 @@ def parseXMLDESC_THES(path, desc_thes_filename):
 
     with open(path + '/' + DESC_THES_FILENAME) as fin:
         xmlFile = fin.read()
-    parsedXml = BeautifulSoup(xmlFile,features="html.parser")
+    parsedXml = BeautifulSoup(xmlFile, features="html.parser")
 
     records = parsedXml.find_all('record')
     for record in records:
@@ -113,7 +114,7 @@ def parseXMLUSEDFOR(path, usedfor_filename):
 
     with open(path + '/' + usedfor_filename) as fin:
         xmlFile = fin.read()
-    parsedXml = BeautifulSoup(xmlFile,features="html.parser")
+    parsedXml = BeautifulSoup(xmlFile, features="html.parser")
 
     records = parsedXml.find_all('record')
     for record in records:
@@ -131,7 +132,7 @@ def parseXMLSCOPENOTE(path, scope_note_filename):
 
     with open(path + '/' + scope_note_filename) as fin:
         xmlFile = fin.read()
-    parsedXml = BeautifulSoup(xmlFile,features="html.parser")
+    parsedXml = BeautifulSoup(xmlFile, features="html.parser")
 
     records = parsedXml.find_all('record')
     for record in records:
@@ -149,7 +150,7 @@ def parseXMLRELATION_AI(path, relation_ui_filename):
     adjacency_list = {}
     with open(path + '/' + relation_ui_filename) as fin:
         xmlFile = fin.read()
-    parsedXml = BeautifulSoup(xmlFile,features="html.parser")
+    parsedXml = BeautifulSoup(xmlFile, features="html.parser")
 
     records = parsedXml.find_all('record')
     for record in records:
@@ -174,7 +175,7 @@ def parseXMLRELATION_BT(path, relation_bt_filename):
 
     with open(path + '/' + relation_bt_filename) as fin:
         xmlFile = fin.read()
-    parsedXml = BeautifulSoup(xmlFile,features="html.parser")
+    parsedXml = BeautifulSoup(xmlFile, features="html.parser")
 
     records = parsedXml.find_all('record')
     for record in records:
@@ -197,7 +198,7 @@ def parseXMLRELATION_RT(path, relation_rt_filename):
 
     with open(path + '/' + relation_rt_filename) as fin:
         xmlFile = fin.read()
-    parsedXml = BeautifulSoup(xmlFile,features="html.parser")
+    parsedXml = BeautifulSoup(xmlFile, features="html.parser")
 
     records = parsedXml.find_all('record')
     for record in records:
@@ -212,58 +213,58 @@ def parseXMLRELATION_RT(path, relation_rt_filename):
         adjacency_list[source_id] = source_node
     return data, Graph(adjacency_list, desc_id2label)
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     print("Prepare Graph!")
     print("Load Domains ...")
     Path(eurovocSaveDir).mkdir(parents=True, exist_ok=True)
-    xml_domains, domain_id2label=parseXMLDOMAINS(TMP_PATH)
-    xml_domains.to_csv(eurovocSaveDir+'dom_en.csv')
+    xml_domains, domain_id2label = parseXMLDOMAINS(TMP_PATH)
+    xml_domains.to_csv(eurovocSaveDir + 'dom_en.csv')
 
-    #thes_en.xml
+    # thes_en.xml
     print("Load M-Thesaurus ...")
-    xml_thesaurus, thes_id2label=parseXMLTHESAURUS(TMP_PATH, THESAURUS_FILENAME)
-    xml_thesaurus.to_csv(eurovocSaveDir+'thes_en.csv')
+    xml_thesaurus, thes_id2label = parseXMLTHESAURUS(TMP_PATH, THESAURUS_FILENAME)
+    xml_thesaurus.to_csv(eurovocSaveDir + 'thes_en.csv')
 
     print("Load Descriptors ...")
-    xml_descriptors, desc_id2label=parseXMLDESCRIPTORS(TMP_PATH, DESCRIPTEUR_FILENAME)
-    xml_descriptors.to_csv(eurovocSaveDir+'desc_en.csv')
+    xml_descriptors, desc_id2label = parseXMLDESCRIPTORS(TMP_PATH, DESCRIPTEUR_FILENAME)
+    xml_descriptors.to_csv(eurovocSaveDir + 'desc_en.csv')
 
     print("Load Descriptor - MThesaurus relation ...")
-    xml_desc_thes, desc2thes=parseXMLDESC_THES(TMP_PATH, DESC_THES_FILENAME)
-    xml_desc_thes.to_csv(eurovocSaveDir+'desc_thes.csv')
+    xml_desc_thes, desc2thes = parseXMLDESC_THES(TMP_PATH, DESC_THES_FILENAME)
+    xml_desc_thes.to_csv(eurovocSaveDir + 'desc_thes.csv')
 
     print("Preparing Topterms ...")
-    topterms=set(xml_desc_thes[xml_desc_thes['TopTerm']=='O']['Descripteur_id'].unique())
+    topterms = set(xml_desc_thes[xml_desc_thes['TopTerm'] == 'O']['Descripteur_id'].unique())
 
-    #uf_en.xml
+    # uf_en.xml
     print("Load Used-for relation ...")
-    xml_descriptors_usedfor, desc_usedfor=parseXMLUSEDFOR(TMP_PATH, USEDFOR_FILENAME)
-    xml_descriptors_usedfor.to_csv(eurovocSaveDir+'desc_uf_en.csv')
+    xml_descriptors_usedfor, desc_usedfor = parseXMLUSEDFOR(TMP_PATH, USEDFOR_FILENAME)
+    xml_descriptors_usedfor.to_csv(eurovocSaveDir + 'desc_uf_en.csv')
 
-    #sn_en.xml
+    # sn_en.xml
     print("Load scope-note ...")
-    xml_descriptors_scopenote=parseXMLSCOPENOTE(TMP_PATH, SCOPE_NOTE_FILENAME)
-    xml_descriptors_scopenote.to_csv(eurovocSaveDir+'desc_sn_en.csv')
+    xml_descriptors_scopenote = parseXMLSCOPENOTE(TMP_PATH, SCOPE_NOTE_FILENAME)
+    xml_descriptors_scopenote.to_csv(eurovocSaveDir + 'desc_sn_en.csv')
 
-    #relation_ui.xml
+    # relation_ui.xml
     print("Load used-instead relation ...")
-    relation_ui, graph_ui= parseXMLRELATION_AI(TMP_PATH, RELATION_UI_FILENAME)
-    relation_ui.to_csv(eurovocSaveDir+'relation_used_instead.csv')
+    relation_ui, graph_ui = parseXMLRELATION_AI(TMP_PATH, RELATION_UI_FILENAME)
+    relation_ui.to_csv(eurovocSaveDir + 'relation_used_instead.csv')
 
-    #relation_bt.xml
+    # relation_bt.xml
     print("Load broader relation ...")
-    relation_bt, graph_bt= parseXMLRELATION_BT(TMP_PATH, RELATION_BT_FILENAME)
-    relation_bt.to_csv(eurovocSaveDir+'relation_broader.csv')
+    relation_bt, graph_bt = parseXMLRELATION_BT(TMP_PATH, RELATION_BT_FILENAME)
+    relation_bt.to_csv(eurovocSaveDir + 'relation_broader.csv')
 
-    #relation_rt.xml
+    # relation_rt.xml
     print("Load related relation ...")
-    relation_rt, graph_rt= parseXMLRELATION_RT(TMP_PATH, RELATION_RT_FILENAME)
-    relation_rt.to_csv(eurovocSaveDir+'relation_related.csv')
+    relation_rt, graph_rt = parseXMLRELATION_RT(TMP_PATH, RELATION_RT_FILENAME)
+    relation_rt.to_csv(eurovocSaveDir + 'relation_related.csv')
 
-
-    analyzeTool=EuroVocAnalyzeTool(domain_id2label, thes_id2label, desc_id2label,
-                                   desc2thes, topterms,desc_usedfor,
-                    graph_ui, graph_bt, graph_rt)
+    analyzeTool = EuroVocAnalyzeTool(domain_id2label, thes_id2label, desc_id2label,
+                                     desc2thes, topterms, desc_usedfor,
+                                     graph_ui, graph_bt, graph_rt)
 
     print("Dump EuroVoc analysis tool ...")
     with open('data/EuroVocAnalysisTool.pickle', 'wb') as handle:
