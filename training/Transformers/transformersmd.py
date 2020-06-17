@@ -72,7 +72,6 @@ class TransformersVocab(Vocab):
     def numericalize(self, t:Collection[str]) -> List[int]:
         "Convert a list of tokens `t` to their ids."
         return self.tokenizer.convert_tokens_to_ids(t)
-        #return self.tokenizer.encode(t)
 
     def textify(self, nums:Collection[int], sep=' ') -> List[str]:
         "Convert a list of `nums` to their tokens."
@@ -85,10 +84,7 @@ class CustomTransformerModel(nn.Module):
         super(CustomTransformerModel,self).__init__()
         self.transformer = transformer_model
         
-    def forward(self, input_ids, attention_mask=None):
-        
-        #attention_mask = (input_ids!=1).type(input_ids.type()) # Test attention_mask for RoBERTa
-        
+    def forward(self, input_ids, attention_mask=None):        
         logits = self.transformer(input_ids,
                                 attention_mask = attention_mask)[0]   
         return logits
