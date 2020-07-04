@@ -1,22 +1,22 @@
 DO_TRAIN=1
-cased=0
+cased=1
 
-dataset_name="EURLEX57K-iterative"
-dataset_path="../../datasets/EurLex57K.csv"
-pretrained_model_name="/home/zein/EurLex/LM-finetune/RoBERTa-LM-finetuned-EurLex"
-model_type="roberta"
+dataset_name="jrc_3langs"
+dataset_path='../../datasets/jrc_3langs_basic.csv'
+dataset_split_path='../../Iterative_Split/JRC_Aquis/'
+pretrained_model_name="/home/zein/Legal-Docs-Large-MLTC/training/LM-finetuning/lm-finetuned/jrc_3langs/distilbert"
+model_type="distilbert"
 
-TOTAL_CYCLES=1
-N_ITERATIONS="1,5,5,10"
-MAX_LR="5e-03,8e-6"
-MAX_LEN=512
-UNFREEZED="-1,-2,-4,-6,-9,-12"
-
-LABEL_COL_NAME="Labels" # Descriptors ExtDesc Domains MThesaurus
-experiment_name="LR_PiCK" # "01" , "04-Topterm"
+TOTAL_CYCLES=9
+N_ITERATIONS="4,4,4,4,4,4,4,4,4"
+MAX_LR="2e-04,5e-05,5e-05,5e-05,5e-05"
+MAX_LEN=512 # 768
+UNFREEZED="-2,-4,-6"
+LABEL_COL_NAME="Descriptors" # Descriptors ExtDesc Domains MThesaurus
+experiment_name="baseline-512"
 
 START_CYCLE=1
-lr_find=1
+lr_find=0
 
 if [ $DO_TRAIN -eq 1 ];
 then
@@ -25,6 +25,7 @@ then
                         --experiment_name=$experiment_name \
                         --dataset_name=$dataset_name \
                         --dataset_path=$dataset_path \
+                        --dataset_split_path=$dataset_split_path \
                         --pretrained_model_name=$pretrained_model_name \
                         --model_type=$model_type \
                         --cased=$cased \

@@ -8,7 +8,6 @@ from transformers import RobertaForSequenceClassification, RobertaTokenizer, Rob
 from transformers import XLNetForSequenceClassification, XLNetTokenizer, XLNetConfig
 from transformers import XLMForSequenceClassification, XLMTokenizer, XLMConfig
 from transformers import DistilBertForSequenceClassification, DistilBertTokenizer, DistilBertConfig
-# from transformers import AlbertForSequenceClassification, AlbertTokenizer, AlbertConfig
 
 from fastai.text.transform import BaseTokenizer
 from fastai.callbacks.csv_logger import CSVLogger
@@ -25,14 +24,20 @@ from evaluation import multi_label_precision, multi_label_recall
 
 import torch
 
+# Constants
+BERT_LABEL = 'bert'
+XLNET_LABEL = 'xlnet'
+XLM_LABEL = 'xlm'
+ROBERTA_LABEL = 'roberta'
+DISTILBERT = 'distilbert'
+
 MODEL_CLASSES = {
-    'bert': (BertForSequenceClassification, BertTokenizer, BertConfig),
-    'xlnet': (XLNetForSequenceClassification, XLNetTokenizer, XLNetConfig),
-    'xlm': (XLMForSequenceClassification, XLMTokenizer, XLMConfig),
-    'roberta': (RobertaForSequenceClassification, RobertaTokenizer, RobertaConfig),
-    'distilbert': (DistilBertForSequenceClassification, DistilBertTokenizer, DistilBertConfig),
-    #'albert':(AlbertForSequenceClassification, AlbertTokenizer, AlbertConfig)
-    }
+    BERT_LABEL: (BertForSequenceClassification, BertTokenizer, BertConfig),
+    XLNET_LABEL: (XLNetForSequenceClassification, XLNetTokenizer, XLNetConfig),
+    XLM_LABEL: (XLMForSequenceClassification, XLMTokenizer, XLMConfig),
+    ROBERTA_LABEL: (RobertaForSequenceClassification, RobertaTokenizer, RobertaConfig),
+    DISTILBERT: (DistilBertForSequenceClassification, DistilBertTokenizer, DistilBertConfig),
+}
 
 
 def getTrainingMetrics():

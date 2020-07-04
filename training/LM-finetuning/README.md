@@ -10,14 +10,14 @@ batch_size=4 # Batch size for transformer-based model
 num_train_epochs=5 # number of iterations / epochs
 save_total_limit=5 # keep last 5 checkpoints
 save_steps=3000  # save checkpoint every 3000 global steps
-model_type="distilbert" # model_type: bert, roberta, distilbert
 
-dataset_name="jrc_en" # Optional
+dataset_name="jrc_en" 
 dataset_path="../../datasets/jrc_en_basic.csv" # path to dataset
 
-OUTPUT_DIR="./lm-finetuned/"$dataset_name"/distilbert" # where to save finetuned model
+model_type="distilbert" # model_type: bert, roberta, distilbert
 MODEL_PATH="distilbert-base-uncased" # pretrained model name
 
+OUTPUT_DIR="./lm-finetuned/"$dataset_name"/"$model_type # where to save finetuned model
 TRAIN_FILE=tmp/train.txt # temporary text file to save training texts
 TEST_FILE=tmp/test.txt # temporary text file to save test texts
 

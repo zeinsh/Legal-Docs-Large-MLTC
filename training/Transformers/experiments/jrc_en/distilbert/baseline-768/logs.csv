@@ -1,0 +1,2 @@
+epoch,train_loss,valid_loss,accuracy_thresh,multi_label_precision,multi_label_recall,fbeta,time
+0,17.208462,#na#,00:10

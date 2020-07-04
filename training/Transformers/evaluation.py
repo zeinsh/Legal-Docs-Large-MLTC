@@ -5,6 +5,26 @@ import matplotlib.pyplot as plt
 
 import torch
 
+VALIDATION_LABEL = 'val'
+TEST_LABEL = 'test'
+
+TestConfig={
+    'minK':5,
+    'maxK':15,    
+    'low_threshold':0,
+    'high_threshold':0.5,
+}
+
+
+class EvaluationData:
+    def __init__(self, y_pred, y_true, filenames, selected_group, columns):
+        self.y_pred=y_pred
+        self.y_true=y_true
+        self.filenames=filenames
+        self.selected_group=selected_group
+        self.columns=columns
+
+        
 def get_ground_truth(c2i, labels_col):
     num_labels=len(c2i)
     y_true=np.zeros((len(labels_col),num_labels))
@@ -20,23 +40,11 @@ def getPredictions(learn, test, vocab):
     learn.data.add_test(test_data)
     y_pred, _ =  learn.get_preds(DatasetType.Test)
     y_pred = y_pred.numpy()
-    return y_pred #np.concatenate([y_pred, np.zeros((y_pred.shape[0],89))], axis=1)
+    return y_pred
 
-
-
-class EvaluationData:
-    def __init__(self, y_pred, y_true, filenames, selected_group, columns):
-        self.y_pred=y_pred
-        self.y_true=y_true
-        self.filenames=filenames
-        self.selected_group=selected_group
-        self.columns=columns
-
-def loadEvaluationData(df, c2i, learner, vocab, LABEL_COL_NAME, selected_group, columns, split='val', original=True):
+def loadEvaluationData(df, c2i, learner, vocab, LABEL_COL_NAME, selected_group, columns, split='val'):
     assert split in ['val', 'test']
     evaluationData=df[df['split']==split]
-#     if original:
-#          evaluationData=evaluationData[evaluationData['original']==1]
     filenames=evaluationData['celex_id'].tolist()
     y_true_col=evaluationData[LABEL_COL_NAME]
     y_true=get_ground_truth(c2i, y_true_col)
@@ -45,65 +53,7 @@ def loadEvaluationData(df, c2i, learner, vocab, LABEL_COL_NAME, selected_group, 
     return EvaluationData(y_pred, y_true, filenames, selected_group, columns)
 
 
-## Configurations 
-def getMethodName(ensembleConfig):
-    name='- '
-    if ensembleConfig['dynamic_thresholding']:
-        name+='Dynamic Thresholding ({}) | '.format(ensembleConfig['norm_type'])
-    if ensembleConfig['etype']!='default':
-        name+='Ensemble agg({})'.format(ensembleConfig['etype'])
-    else:
-        name+='No ensemble'
-    return name
-
-def makeMDRow(vec, boldmaxVal=False):
-      if boldmaxVal==True:
-        idx=1
-        mx=vec[1]
-        for i in range(2,len(vec)):
-            if mx<vec[i]:
-                mx,idx=vec[i],i
-        vec[idx]='**{}**'.format(vec[idx])
-        return '|'+'|'.join(vec)+'|'.replace(mx,'**'+mx+'**')
-      else:
-        return '|'+'|'.join(vec)+'|'
-
-EnsembleConfig={
-    'vote_threshold':0.2, 
-    'etype':'default', 
-    'dynamic_thresholding':False, 
-    'norm_type':'max',
-}
-
-TestConfig={
-    'minK':5,
-    'maxK':15,    
-    'low_threshold':0,
-    'high_threshold':0.5,
-}
-
 ## Helpers
-def softmax(x, eps=0.0000000001):
-    """Compute softmax values for each sets of scores in x."""
-    e_x = np.exp(x - np.max(x))
-    return e_x / (e_x.sum(axis=0) +eps)
-
-def normalize(arr, eps=0.0000000001, norm_type='max'):
-  mn, mx=np.min(arr), np.max(arr)
-  mean, std=np.mean(arr), np.std(arr)
-  if norm_type=='none':
-    return arr
-  elif norm_type=='softmax':
-    return softmax(np.array(arr),eps)
-  elif norm_type=='max':
-    return arr/(mx+eps)
-  elif norm_type=='std':
-    ret=(arr-mean)/std
-    return normalize(ret, norm_type='min_max')
-  else:
-    return (arr-mn)/(mx-mn+eps)
-
-
 def findThreshold(evaluationData, low=0, high=1, log=True):
     maxf1=-10
     best_threshold=0
@@ -134,116 +84,14 @@ def getMetrics(y_true, y_pred, threshold):
     prec = precision_score(y_true, y_pred>threshold, average='micro')
     rec  = recall_score(y_true, y_pred>threshold, average='micro')
     return f1, prec, rec
-
-
-def makeEnsemble(evaluationData, k=None,
-                 vote_threshold=0.2, etype='default', dynamic_thresholding=False, norm_type='max'): # inference
-
-    y_pred, y_true, filenames=np.copy(evaluationData.y_pred), np.copy(evaluationData.y_true), evaluationData.filenames
     
-    unique_filenames=list(set(filenames))
-    numberOfTests=len(unique_filenames)
+def basicEvaluation(validationData, testData, low_threshold=0, high_threshold=0.5, minK=None, maxK=None, plot=False):
 
-    ret=np.zeros((numberOfTests ,y_true.shape[1]))  
-    y_true2=np.zeros((numberOfTests ,y_true.shape[1]))
-    
-    
-    if etype not in ['avg', 'max', 'min', 'vote']:
-        etype='default'
-        unique_filenames, ret, y_true2=filenames, y_pred, y_true
-        numberOfTests=len(unique_filenames)
-    if etype=='min':
-        ret+=1000000
-
-    numfound=0
-    if etype!='default':
-        for i in range(numberOfTests):
-            last=-1
-            while True:
-                try:
-                    last=filenames.index(unique_filenames[i],last+1)
-
-                    if etype=='max':
-                        ret[i,:]=np.maximum(ret[i,:],y_pred[last,:])
-                    elif etype=='min':
-                        ret[i,:]=np.minimum(ret[i,:],y_pred[last,:])
-                    elif etype=='vote':
-                        ret[i,:]+=(y_pred[last,:]>vote_threshold)
-                    else:
-                        ret[i,:]+=y_pred[last,:]
-                    numfound+=1
-                    y_true2[i,:]=y_true[last,:]
-                except Exception as ex:
-                    if  etype=='avg':
-                        ret[i,:]/=numfound #avg
-                    elif etype=='vote':
-                        ret[i,:]=ret[i,:]>(numfound/2)
-                    numfound=0
-                    break
-
-    if dynamic_thresholding:
-        for i in range(numberOfTests):
-            arrlast, arrsortlast=ret[i],ret[i].argsort()[::-1]
-            arrlast[arrsortlast[k:]]=0
-            arrlast[arrsortlast[:k]]=normalize(arrlast[arrsortlast[:k]], norm_type=norm_type)
-            ret[i]=arrlast
-
-    y_pred=ret#ret[:numberOfTests,evaluationData.selected_group]
-    y_true=y_true2[:numberOfTests,evaluationData.selected_group]
-    return EvaluationData(y_pred, y_true, unique_filenames,evaluationData.selected_group, evaluationData.columns)
-
-def testFunction(validationData, testData, ensembleConfig={},minK=5, maxK=15, low_threshold=0, high_threshold=0.5):
-
-    kvalues=['K']
-    validation_f1_scores=['**Validation F1**']
-    test_f1_scores=['**Test F1**']
-    precisions=['**Precision**']
-    recalls=['**Recall**']
-    best_thresholds=['**Threshold**']
-    bestF1=-1
-    
-    if minK is None:
-        assert dynamic_thresholding==False
-        searchRange=['-'] # no DT print - instead of k value 
-    else:
-        searchRange=range(minK, maxK)
-        
-    for k in searchRange:
-        validEnsData=makeEnsemble(validationData, k=k, **ensembleConfig)
-        testEnsData=makeEnsemble(testData, k=k, **ensembleConfig)
-        best_threshold, f1_val, _=findThreshold(validEnsData, low=low_threshold, high=high_threshold, log=False)
-        f1, prec, rec   = getMetrics(testEnsData.y_true, testEnsData.y_pred, best_threshold)
-        kvalues.append(str(k))
-        validation_f1_scores.append(str(np.round(f1_val,4)))
-        test_f1_scores.append(str(np.round(f1,4)))
-        best_thresholds.append(str(np.round(best_threshold,2)))
-        precisions.append(str(np.round(prec,4)))
-        recalls.append(str(np.round(rec,4)))
-
-        bestF1=max(bestF1, f1_val)
-        print("k=",k,";threshold",best_threshold, ";F1 (micro)", bestF1)
-    
-    report=''
-    dashes=['---']*len(kvalues)
-    
-    report+=makeMDRow(kvalues)+'\n'
-    report+=makeMDRow(dashes)+'\n'
-    report+=makeMDRow(validation_f1_scores, boldmaxVal=True)+'\n'
-    report+=makeMDRow(test_f1_scores)+'\n'
-    report+=makeMDRow(precisions)+'\n'
-    report+=makeMDRow(recalls)+'\n'
-    report+=makeMDRow(best_thresholds)+'\n'
-    return report, bestF1
-    
-def basicEvaluation(validationData, testData, ensembleConfig, low_threshold=0, high_threshold=0.5, minK=None, maxK=None, plot=False):
-    validEnsData=makeEnsemble(validationData, **ensembleConfig)
-    testEnsData=makeEnsemble(testData, dynamic_thresholding=False)
-
-    best_threshold, maxf1, f1_scores=findThreshold(validEnsData, low=low_threshold, high=high_threshold, log=False)
+    best_threshold, maxf1, f1_scores=findThreshold(validationData, low=low_threshold, high=high_threshold, log=False)
     print('Best threshold is ', best_threshold,'; Best F1 score is', maxf1)
 
-    f1_val=f1_score(testEnsData.y_true, testEnsData.y_pred>best_threshold, average='micro')
-    f1, prec, rec   = getMetrics(testEnsData.y_true, testEnsData.y_pred, best_threshold)
+    f1_val=f1_score(testData.y_true, testData.y_pred>best_threshold, average='micro')
+    f1, prec, rec   = getMetrics(testData.y_true, testData.y_pred, best_threshold)
 
     if plot:
         plt.title('F1 score / threshold')
@@ -252,13 +100,7 @@ def basicEvaluation(validationData, testData, ensembleConfig, low_threshold=0, h
 
         plt.plot(np.arange(low_threshold,high_threshold,0.01), f1_scores)
 
-    report=''
-    report+='Threshold {}'.format(best_threshold)+'\n'
-    report+="F1 (micro) {}".format(f1)+'\n'
-    report+="P (micro) {}".format(prec)+'\n'
-    report+="R (micro) {}".format(rec)+'\n'
-
-    return report, f1_val
+    return f1_val
 
 
 ## IR Metrics
@@ -360,3 +202,74 @@ def ndcg_at_k(y_true, y_score, k, gains="exponential"):
         sm+=ndcg_score(y_true[i], y_score[i], k=k, gains=gains)
     return sm/y_true.shape[0]
 
+
+def average_precision_score(y_true, y_score, k=10):
+    """Average precision at rank k
+    Parameters
+    ----------
+    y_true : array-like, shape = [n_samples]
+        Ground truth (true relevance labels).
+    y_score : array-like, shape = [n_samples]
+        Predicted scores.
+    k : int
+        Rank.
+    Returns
+    -------
+    average precision @k : float
+    """
+    unique_y = np.unique(y_true)
+
+    if len(unique_y) > 2:
+        raise ValueError("Only supported for two relevance levels.")
+
+    pos_label = unique_y[1]
+    n_pos = np.sum(y_true == pos_label)
+
+    order = np.argsort(y_score)[::-1][:min(n_pos, k)]
+    y_true = np.asarray(y_true)[order]
+
+    score = 0
+    for i in xrange(len(y_true)):
+        if y_true[i] == pos_label:
+            # Compute precision up to document i
+            # i.e, percentage of relevant documents up to document i.
+            prec = 0
+            for j in xrange(0, i + 1):
+                if y_true[j] == pos_label:
+                    prec += 1.0
+            prec /= (i + 1.0)
+            score += prec
+
+    if n_pos == 0:
+        return 0
+
+    return score / n_pos
+
+############### Evaluate model ##############
+def performEvaluation(df, c2i, learner, vocab, LABEL_COL_NAME, COLUMNS, model_output_name):
+    _ = learner.load(model_output_name)
+
+    selected_group = [learner.data.c2i[k] for k in learner.data.c2i.keys()]
+
+    validationDataOrg = loadEvaluationData(df, c2i, learner, vocab, LABEL_COL_NAME, selected_group, COLUMNS, split=VALIDATION_LABEL)
+    testDataOrg = loadEvaluationData(df, c2i, learner, vocab, LABEL_COL_NAME, selected_group, COLUMNS, split=TEST_LABEL)
+
+    # additional labels (zero-shot)
+    AdditionalColumnsLength = validationDataOrg.y_true.shape[1] - validationDataOrg.y_pred.shape[1]
+    validationDataOrg.y_pred = np.concatenate(
+        [validationDataOrg.y_pred, np.zeros((validationDataOrg.y_pred.shape[0], AdditionalColumnsLength))], axis=1)
+    testDataOrg.y_pred = np.concatenate(
+        [testDataOrg.y_pred, np.zeros((testDataOrg.y_pred.shape[0], AdditionalColumnsLength))], axis=1)
+
+    f1_val = basicEvaluation(validationDataOrg, testDataOrg, plot=True, **TestConfig)
+
+    ### make function for each loop
+    prAtK = []
+    for k in range(1, 20):
+        prAtK.append(precision_at_k(testDataOrg.y_true, testDataOrg.y_pred, k))
+
+    nDcgAtK = []
+    for k in range(1, 20):
+        nDcgAtK.append(ndcg_at_k(testDataOrg.y_true, testDataOrg.y_pred, k))
+
+    return f1_val, prAtK, nDcgAtK
