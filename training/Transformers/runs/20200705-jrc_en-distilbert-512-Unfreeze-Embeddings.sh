@@ -12,13 +12,13 @@ pretrained_model_name="/home/zein/Legal-Docs-Large-MLTC/training/LM-finetuning/l
 
 
 START_CYCLE=1
-TOTAL_CYCLES=1
-N_ITERATIONS="1,4,4,4,4,4,4,4,4"
+TOTAL_CYCLES=9
+N_ITERATIONS="4,4,4,4,4,4,4,4,4"
 MAX_LR="2e-04,5e-05,5e-05,5e-05,5e-05"
 MAX_LEN=512
-UNFREEZED="-2,-4,-6"
+UNFREEZED="-2,-4,-6,-100"
 LABEL_COL_NAME="Descriptors" # Descriptors ExtDesc Domains MThesaurus
-experiment_name="test"
+experiment_name="unfreeze-embeddings-512"
 
 lr_find=0
 

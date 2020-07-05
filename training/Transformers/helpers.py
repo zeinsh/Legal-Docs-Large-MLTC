@@ -79,7 +79,9 @@ def seed_all(seed_value):
 def performFinetuningCycle(learner, unfreeze_to, n_iterations, max_lr, model_name, continue_from, seed=42):
     seed_all(seed)
     learner.load("{}/{}".format(model_name, continue_from - 1))
-    if unfreeze_to < 0:
+    if unfreeze_to==-100:
+        learner.unfreeze()
+    elif unfreeze_to < 0:
         learner.freeze_to(unfreeze_to)
     learner.fit_one_cycle(n_iterations, max_lr=max_lr, moms=(0.8, 0.7))
     learner.save("{}/{}".format(model_name, continue_from))
