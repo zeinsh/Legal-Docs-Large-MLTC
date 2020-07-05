@@ -4,18 +4,11 @@ from helpers import prepareDataset
 from helpers import performFinetuningCycle, lrFind
 from helpers import plotResults
 
-# move anything that uses learner to helper
 from evaluation import performEvaluation
 
 from fastai.text import TextList
-
-# from fastai import *
-# from fastai.callbacks import *
-
 from pathlib import Path
 
-
-import os
 import argparse
 
 ########## CONSTANTS
@@ -27,9 +20,18 @@ VALIDATION_LABEL = 'val'
 TEST_LABEL = 'test'
 NO_SPLIT_LABEL = 'no split'
 LABEL_DELIM = ';'
+COMMA = ','
+
+
+def getByIndexOrLast(arr, index):
+    if index < len(arr):
+        return arr[i]
+    else:
+        return arr[-1]
+
 
 ###################################### Prepare training settings #########
-parser = argparse.ArgumentParser("Finetune bert for multi-label classification")
+parser = argparse.ArgumentParser("Finetune transformer-based LM for multi-label classification")
 
 ## Data
 parser.add_argument("--dataset_name", help="name of the dataset", type=str)
@@ -38,13 +40,13 @@ parser.add_argument("--dataset_split_path", default="", help="path of the datase
 parser.add_argument("--LABEL_COL_NAME", default='Labels', help="Labels, Domain, MThesaurus, Topterm", type=str)
 parser.add_argument('--cased', default=0, help="set 1 if the model is cased", type=int)
 parser.add_argument("--trainLanguages",
-                        default="en",
-                        help="Languages for training separated by commas: \n"
-                             + "List of supported Languages: en, de, it, fr", type=str)
+                    default="en",
+                    help="Languages for training separated by commas: \n"
+                         + "List of supported Languages: en, de, it, fr", type=str)
 parser.add_argument("--testLanguages",
-                        default="en",
-                        help="Languages for validation/testing separated by commas: \n"
-                             + "List of supported Languages: en, de, it, fr", type=str)
+                    default="en",
+                    help="Languages for validation/testing separated by commas: \n"
+                         + "List of supported Languages: en, de, it, fr", type=str)
 
 ## Architecture
 parser.add_argument("--model_type", default='bert', help="model type", type=str)
@@ -74,8 +76,8 @@ dataset_path = args.dataset_path
 dataset_split_path = args.dataset_split_path
 LABEL_COL_NAME = args.LABEL_COL_NAME
 uncased = (args.cased == 0)
-testLangs=args.trainLanguages.split(',')
-trainLangs=args.trainLanguages.split(',')
+testLangs = args.trainLanguages.split(COMMA)
+trainLangs = args.trainLanguages.split(COMMA)
 
 ## Architecture
 model_type = args.model_type
@@ -104,7 +106,7 @@ assert LABEL_COL_NAME in ['MThesaurus', 'Domain', 'Topterm', 'Labels', 'ExtDesc'
 MODEL_PATH = "models/{}".format(experiment_name)
 LR_PATH = "experiments/{}/{}/{}/lrFind/".format(dataset_name, model_type, experiment_name)
 EXPERIMENT_PATH = "experiments/{}/{}/{}/".format(dataset_name, model_type, experiment_name)
-RESULTS_SAVEPATH = EXPERIMENT_PATH+'/results.csv'
+RESULTS_SAVEPATH = EXPERIMENT_PATH + '/results.csv'
 logfilename = EXPERIMENT_PATH + "/logs"
 
 Path(MODEL_PATH).mkdir(parents=True, exist_ok=True)
@@ -112,7 +114,7 @@ Path(LR_PATH).mkdir(parents=True, exist_ok=True)
 
 ################ Finetuning ################
 # Load dataset
-df = prepareDataset(dataset_path, dataset_split_path, uncased,trainLangs,testLangs)
+df = prepareDataset(dataset_path, dataset_split_path, uncased, trainLangs, testLangs)
 train_idx = list(df[df[SPLIT_FIELD] == TRAIN_LABEL].index)
 valid_idx = list(df[df[SPLIT_FIELD] == VALIDATION_LABEL].index)
 
@@ -141,7 +143,7 @@ print("len c2i before", len(c2i))
 for i in range(len(df)):
     labels_raw = df[LABEL_COL_NAME].iloc[i]
     itemSplit = df[SPLIT_FIELD].iloc[i]
-    if (itemSplit==NO_SPLIT_LABEL):
+    if (itemSplit == NO_SPLIT_LABEL):
         continue
     for singlelabel in labels_raw.split(';'):
         if singlelabel not in c2i.keys():
@@ -150,33 +152,21 @@ for i in range(len(df)):
 print("len c2i after", len(c2i))
 ###############################################
 
+
 for cycle in range(START_CYCLE, TOTAL_CYCLES + 1):
-    if cycle - 1 < len(LR):
-        max_lr = LR[cycle - 1]
-    else:
-        max_lr = LR[-1]
-
-    if cycle - 1 < len(UNFREEZE):
-        unfreeze_to = UNFREEZE[cycle - 1]
-    else:
-        unfreeze_to = UNFREEZE[-1]
-
-    if cycle - 1 < len(N_ITERATIONS):
-        n_iterations = N_ITERATIONS[cycle - 1]
-    else:
-        n_iterations = N_ITERATIONS[-1]
+    max_lr = getByIndexOrLast(LR, cycle - 1)
+    unfreeze_to = getByIndexOrLast(UNFREEZE, cycle - 1)
+    n_iterations = getByIndexOrLast(N_ITERATIONS, cycle - 1)
 
     figname = "{}/{}.png".format(LR_PATH, cycle)
-
     lrFind(learner, unfreeze_to, n_iterations, max_lr, experiment_name, cycle, seed=seed, figname=figname)
     if not LR_FIND:
         learner = performFinetuningCycle(learner, unfreeze_to, n_iterations, max_lr, experiment_name, cycle, seed=seed)
 
     # Evaluation
     lastSavedModel = experiment_name + "/" + str(cycle)
-    f1_val, prAtK, nDcgAtK = performEvaluation(df, c2i, learner, vocab, LABEL_COL_NAME
-                                               , COLUMNS, lastSavedModel)
+    f1_val, prAtK, nDcgAtK = performEvaluation(df, c2i, learner, vocab, LABEL_COL_NAME, COLUMNS, lastSavedModel)
     currentResults = [f1_val] + prAtK + nDcgAtK
     with open(RESULTS_SAVEPATH, 'a') as fout:
-        fout.write(','.join([str(element) for element in currentResults]) + "\n")
+        fout.write(COMMA.join([str(element) for element in currentResults]) + "\n")
     plotResults(EXPERIMENT_PATH, RESULTS_SAVEPATH)

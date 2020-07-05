@@ -1,5 +1,4 @@
-from sklearn.metrics import precision_score, recall_score, accuracy_score, f1_score
-from sklearn.metrics import classification_report
+from sklearn.metrics import precision_score, recall_score, f1_score
 from fastai.text import TextList, DatasetType
 import matplotlib.pyplot as plt
 
@@ -8,97 +7,101 @@ import torch
 VALIDATION_LABEL = 'val'
 TEST_LABEL = 'test'
 
-TestConfig={
-    'minK':5,
-    'maxK':15,    
-    'low_threshold':0,
-    'high_threshold':0.5,
+TestConfig = {
+    'minK': 5,
+    'maxK': 15,
+    'low_threshold': 0,
+    'high_threshold': 0.5,
 }
 
 
 class EvaluationData:
     def __init__(self, y_pred, y_true, filenames, selected_group, columns):
-        self.y_pred=y_pred
-        self.y_true=y_true
-        self.filenames=filenames
-        self.selected_group=selected_group
-        self.columns=columns
+        self.y_pred = y_pred
+        self.y_true = y_true
+        self.filenames = filenames
+        self.selected_group = selected_group
+        self.columns = columns
 
-        
+
 def get_ground_truth(c2i, labels_col):
-    num_labels=len(c2i)
-    y_true=np.zeros((len(labels_col),num_labels))
+    num_labels = len(c2i)
+    y_true = np.zeros((len(labels_col), num_labels))
 
     for i in range(len(labels_col)):
-        labels=labels_col.iloc[i].split(';')
+        labels = labels_col.iloc[i].split(';')
         for label in labels:
-            y_true[i][c2i[label]]=1
+            y_true[i][c2i[label]] = 1
     return y_true
+
 
 def getPredictions(learn, test, vocab):
     test_data = TextList.from_df(test, cols='text', vocab=vocab)
     learn.data.add_test(test_data)
-    y_pred, _ =  learn.get_preds(DatasetType.Test)
+    y_pred, _ = learn.get_preds(DatasetType.Test)
     y_pred = y_pred.numpy()
     return y_pred
 
+
 def loadEvaluationData(df, c2i, learner, vocab, LABEL_COL_NAME, selected_group, columns, split='val'):
     assert split in ['val', 'test']
-    evaluationData=df[df['split']==split]
-    filenames=evaluationData['celex_id'].tolist()
-    y_true_col=evaluationData[LABEL_COL_NAME]
-    y_true=get_ground_truth(c2i, y_true_col)
-    y_pred=getPredictions(learner, evaluationData, vocab)
+    evaluationData = df[df['split'] == split]
+    filenames = evaluationData['celex_id'].tolist()
+    y_true_col = evaluationData[LABEL_COL_NAME]
+    y_true = get_ground_truth(c2i, y_true_col)
+    y_pred = getPredictions(learner, evaluationData, vocab)
 
     return EvaluationData(y_pred, y_true, filenames, selected_group, columns)
 
 
 ## Helpers
 def findThreshold(evaluationData, low=0, high=1, log=True):
-    maxf1=-10
-    best_threshold=0
-    f1_scores=[]
+    maxf1 = -10
+    best_threshold = 0
+    f1_scores = []
 
-    for thresh in np.arange(low,high,0.01):
-        f1=f1_score(evaluationData.y_true, evaluationData.y_pred>thresh, average='micro')
+    for thresh in np.arange(low, high, 0.01):
+        f1 = f1_score(evaluationData.y_true, evaluationData.y_pred > thresh, average='micro')
         f1_scores.append(f1)
-        if f1>maxf1:
-            maxf1=f1
-            best_threshold=thresh
+        if f1 > maxf1:
+            maxf1 = f1
+            best_threshold = thresh
         if log:
             print(thresh, f1)
     return best_threshold, maxf1, f1_scores
 
+
 def multi_label_precision(log_preds, targs, thresh=0.5, epsilon=1e-8):
     pred_pos = (log_preds > thresh).float()
     tpos = torch.mul((targs == pred_pos).float(), targs.float())
-    return (tpos.sum()/(pred_pos.sum() + epsilon))#.item()
-  
+    return (tpos.sum() / (pred_pos.sum() + epsilon))  # .item()
+
+
 def multi_label_recall(log_preds, targs, thresh=0.5, epsilon=1e-8):
     pred_pos = (log_preds > thresh).float()
     tpos = torch.mul((targs == pred_pos).float(), targs.float())
-    return (tpos.sum()/(targs.sum() + epsilon))
+    return (tpos.sum() / (targs.sum() + epsilon))
+
 
 def getMetrics(y_true, y_pred, threshold):
-    f1   = f1_score(y_true, y_pred>threshold, average='micro')
-    prec = precision_score(y_true, y_pred>threshold, average='micro')
-    rec  = recall_score(y_true, y_pred>threshold, average='micro')
+    f1 = f1_score(y_true, y_pred > threshold, average='micro')
+    prec = precision_score(y_true, y_pred > threshold, average='micro')
+    rec = recall_score(y_true, y_pred > threshold, average='micro')
     return f1, prec, rec
-    
+
+
 def basicEvaluation(validationData, testData, low_threshold=0, high_threshold=0.5, minK=None, maxK=None, plot=False):
+    best_threshold, maxf1, f1_scores = findThreshold(validationData, low=low_threshold, high=high_threshold, log=False)
+    print('Best threshold is ', best_threshold, '; Best F1 score is', maxf1)
 
-    best_threshold, maxf1, f1_scores=findThreshold(validationData, low=low_threshold, high=high_threshold, log=False)
-    print('Best threshold is ', best_threshold,'; Best F1 score is', maxf1)
-
-    f1_val=f1_score(testData.y_true, testData.y_pred>best_threshold, average='micro')
-    f1, prec, rec   = getMetrics(testData.y_true, testData.y_pred, best_threshold)
+    f1_val = f1_score(testData.y_true, testData.y_pred > best_threshold, average='micro')
 
     if plot:
         plt.title('F1 score / threshold')
         plt.xlabel('Threshold')
         plt.ylabel('F1-score')
 
-        plt.plot(np.arange(low_threshold,high_threshold,0.01), f1_scores)
+        plt.plot(np.arange(low_threshold, high_threshold, 0.01), f1_scores)
 
     return f1_val
 
@@ -137,15 +140,18 @@ def ranking_precision_score(y_true, y_score, k=10):
     # Divide by min(n_pos, k) such that the best achievable score is always 1.0.
     return float(n_relevant) / min(n_pos, k)
 
+
 def precision_at_k(y_true, y_score, k):
-    sm=0
+    sm = 0
     for i in range(y_true.shape[0]):
-        sm+=ranking_precision_score(y_true[i], y_score[i], k=k)
-    return sm/y_true.shape[0]    
+        sm += ranking_precision_score(y_true[i], y_score[i], k=k)
+    return sm / y_true.shape[0]
 
 
 # https://gist.github.com/mblondel/7337391#file-letor_metrics-py-L236
 import numpy as np
+
+
 def dcg_score(y_true, y_score, k=10, gains="exponential"):
     """Discounted cumulative gain (DCG) at rank k
     Parameters
@@ -176,6 +182,7 @@ def dcg_score(y_true, y_score, k=10, gains="exponential"):
     discounts = np.log2(np.arange(len(y_true)) + 2)
     return np.sum(gains / discounts)
 
+
 def ndcg_score(y_true, y_score, k=10, gains="exponential"):
     """Normalized discounted cumulative gain (NDCG) at rank k
     Parameters
@@ -196,11 +203,12 @@ def ndcg_score(y_true, y_score, k=10, gains="exponential"):
     actual = dcg_score(y_true, y_score, k, gains)
     return actual / best
 
+
 def ndcg_at_k(y_true, y_score, k, gains="exponential"):
-    sm=0
+    sm = 0
     for i in range(y_true.shape[0]):
-        sm+=ndcg_score(y_true[i], y_score[i], k=k, gains=gains)
-    return sm/y_true.shape[0]
+        sm += ndcg_score(y_true[i], y_score[i], k=k, gains=gains)
+    return sm / y_true.shape[0]
 
 
 def average_precision_score(y_true, y_score, k=10):
@@ -245,13 +253,15 @@ def average_precision_score(y_true, y_score, k=10):
 
     return score / n_pos
 
+
 ############### Evaluate model ##############
 def performEvaluation(df, c2i, learner, vocab, LABEL_COL_NAME, COLUMNS, model_output_name):
     _ = learner.load(model_output_name)
 
     selected_group = [learner.data.c2i[k] for k in learner.data.c2i.keys()]
 
-    validationDataOrg = loadEvaluationData(df, c2i, learner, vocab, LABEL_COL_NAME, selected_group, COLUMNS, split=VALIDATION_LABEL)
+    validationDataOrg = loadEvaluationData(df, c2i, learner, vocab, LABEL_COL_NAME, selected_group, COLUMNS,
+                                           split=VALIDATION_LABEL)
     testDataOrg = loadEvaluationData(df, c2i, learner, vocab, LABEL_COL_NAME, selected_group, COLUMNS, split=TEST_LABEL)
 
     # additional labels (zero-shot)
