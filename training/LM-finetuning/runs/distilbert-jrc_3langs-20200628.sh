@@ -16,7 +16,7 @@ python prepareTextData.py --dataset_path=$dataset_path \
                           --test_output_path=$TEST_FILE
 
 python run_lm_finetuning.py \
---per_gpu_train_batch_size $batch_size \
+--per_device_train_batch_size $batch_size \
 --save_total_limit $save_total_limit \
 --save_steps $save_steps \
 --num_train_epochs $num_train_epochs \
