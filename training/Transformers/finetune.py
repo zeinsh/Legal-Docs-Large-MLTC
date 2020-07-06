@@ -21,14 +21,21 @@ TEST_LABEL = 'test'
 NO_SPLIT_LABEL = 'no split'
 LABEL_DELIM = ';'
 COMMA = ','
-
+EMPTY_STR = ''
 
 def getByIndexOrLast(arr, index):
     if index < len(arr):
-        return arr[i]
+        return arr[index]
     else:
         return arr[-1]
+    
 
+def getSetOfLabels(data, labelColumn, split=None):
+    if split==None:
+        selected=data
+    else:
+        selected=data[data[SPLIT_FIELD]==split]
+    return set(LABEL_DELIM.join(selected[labelColumn]).split(LABEL_DELIM))
 
 ###################################### Prepare training settings #########
 parser = argparse.ArgumentParser("Finetune transformer-based LM for multi-label classification")
@@ -115,6 +122,7 @@ Path(LR_PATH).mkdir(parents=True, exist_ok=True)
 ################ Finetuning ################
 # Load dataset
 df = prepareDataset(dataset_path, dataset_split_path, uncased, trainLangs, testLangs)
+df.fillna(EMPTY_STR, inplace=True)
 train_idx = list(df[df[SPLIT_FIELD] == TRAIN_LABEL].index)
 valid_idx = list(df[df[SPLIT_FIELD] == VALIDATION_LABEL].index)
 
@@ -139,18 +147,12 @@ c2i = learner.data.c2i
 COLUMNS = list(learner.data.classes)
 vocab = learner.data.vocab
 
-print("len c2i before", len(c2i))
-for i in range(len(df)):
-    labels_raw = df[LABEL_COL_NAME].iloc[i]
-    itemSplit = df[SPLIT_FIELD].iloc[i]
-    if (itemSplit == NO_SPLIT_LABEL):
-        continue
-    for singlelabel in labels_raw.split(';'):
-        if singlelabel not in c2i.keys():
-            c2i[singlelabel] = len(c2i)
-            COLUMNS.append(singlelabel)
-print("len c2i after", len(c2i))
-###############################################
+# Add labels which are not in train set
+trainLabels=getSetOfLabels(df, LABEL_COL_NAME, TRAIN_LABEL)
+allLabels=getSetOfLabels(df, LABEL_COL_NAME, None)
+newLabels=allLabels-trainLabels
+for singleLabel in newLabels:
+    c2i[singleLabel] = len(c2i)
 
 
 for cycle in range(START_CYCLE, TOTAL_CYCLES + 1):
