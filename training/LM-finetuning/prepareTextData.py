@@ -1,5 +1,6 @@
 import argparse
 
+import numpy as np
 import pandas as pd
 from pathlib import Path
 
@@ -30,10 +31,12 @@ if __name__=="__main__":
 
     # get train texts
     trainTexts = data[data[SPLIT_LABEL]==TRAIN_TAG][TEXT_LABEL]
+    trainTexts = trainTexts.iloc[np.random.permutation(len(trainTexts))]
     trainText = CONCATENATATE_SYMBOL.join(trainTexts)
-
+    
     # get validattion&test texts
     valTestTexts = data[~(data[SPLIT_LABEL]==TRAIN_TAG)][TEXT_LABEL]
+    valTestTexts = valTestTexts.iloc[np.random.permutation(len(valTestTexts))]
     valTestText = CONCATENATATE_SYMBOL.join(valTestTexts)
 
     # save texts

@@ -51,6 +51,13 @@ def loadEvaluationData(df, c2i, learner, vocab, LABEL_COL_NAME, selected_group, 
     y_true = get_ground_truth(c2i, y_true_col)
     y_pred = getPredictions(learner, evaluationData, vocab)
 
+    # additional labels (zero-shot)
+    AdditionalColumnsLength = y_true.shape[1] - y_pred.shape[1]
+    y_pred = np.concatenate([y_pred, np.zeros((y_pred.shape[0], AdditionalColumnsLength))], axis=1)
+    
+    y_true = y_true[:,selected_group]
+    y_pred = y_pred[:,selected_group]
+    
     return EvaluationData(y_pred, y_true, filenames, selected_group, columns)
 
 
@@ -129,8 +136,11 @@ def ranking_precision_score(y_true, y_score, k=10):
 
     if len(unique_y) > 2:
         raise ValueError("Only supported for two relevance levels.")
+    if len(unique_y) == 2:
+        pos_label = unique_y[1]
+    else:
+        pos_label = 1
 
-    pos_label = unique_y[1]
     n_pos = np.sum(y_true == pos_label)
 
     order = np.argsort(y_score)[::-1]
@@ -229,8 +239,10 @@ def average_precision_score(y_true, y_score, k=10):
 
     if len(unique_y) > 2:
         raise ValueError("Only supported for two relevance levels.")
-
-    pos_label = unique_y[1]
+    if len(unique_y) == 2:
+        pos_label = unique_y[1]
+    else:
+        pos_label = 1
     n_pos = np.sum(y_true == pos_label)
 
     order = np.argsort(y_score)[::-1][:min(n_pos, k)]
@@ -255,21 +267,12 @@ def average_precision_score(y_true, y_score, k=10):
 
 
 ############### Evaluate model ##############
-def performEvaluation(df, c2i, learner, vocab, LABEL_COL_NAME, COLUMNS, model_output_name):
+def performEvaluation(df, c2i, learner, vocab, LABEL_COL_NAME, COLUMNS, model_output_name, selected_group):
     _ = learner.load(model_output_name)
-
-    selected_group = [learner.data.c2i[k] for k in learner.data.c2i.keys()]
 
     validationDataOrg = loadEvaluationData(df, c2i, learner, vocab, LABEL_COL_NAME, selected_group, COLUMNS,
                                            split=VALIDATION_LABEL)
     testDataOrg = loadEvaluationData(df, c2i, learner, vocab, LABEL_COL_NAME, selected_group, COLUMNS, split=TEST_LABEL)
-
-    # additional labels (zero-shot)
-    AdditionalColumnsLength = validationDataOrg.y_true.shape[1] - validationDataOrg.y_pred.shape[1]
-    validationDataOrg.y_pred = np.concatenate(
-        [validationDataOrg.y_pred, np.zeros((validationDataOrg.y_pred.shape[0], AdditionalColumnsLength))], axis=1)
-    testDataOrg.y_pred = np.concatenate(
-        [testDataOrg.y_pred, np.zeros((testDataOrg.y_pred.shape[0], AdditionalColumnsLength))], axis=1)
 
     f1_val = basicEvaluation(validationDataOrg, testDataOrg, plot=True, **TestConfig)
 

@@ -9,6 +9,7 @@ from evaluation import performEvaluation
 from fastai.text import TextList
 from pathlib import Path
 
+import random
 import argparse
 
 ########## CONSTANTS
@@ -36,6 +37,27 @@ def getSetOfLabels(data, labelColumn, split=None):
     else:
         selected=data[data[SPLIT_FIELD]==split]
     return set(LABEL_DELIM.join(selected[labelColumn]).split(LABEL_DELIM))
+
+def splitLabels(data, label, c2i):
+    data=data[~data[label].isna()]
+
+    # extract all labels
+    labels_dict={}
+    for i in range(len(data)):
+        for tag in data[label].iloc[i].split(';'):
+            labels_dict[tag] = labels_dict.get(tag,0)+1
+    
+    all_labels = [c2i[key] for key,value in labels_dict.items()]
+    frequent_labels = [c2i[key] for key,value in labels_dict.items() if value>=50]
+    low_frequent_labels = [c2i[key] for key,value in labels_dict.items() if value<50]
+
+    return frequent_labels, low_frequent_labels, all_labels
+
+def getLangResultsPath(lang, dataset_name, model_type, experiment_name, groupName):
+    return "results/{}/{}/{}/{}/{}/".format(lang, dataset_name, model_type, experiment_name, groupName) + '/results.csv'
+
+def getLangExperimentPath(lang, dataset_name, model_type, experiment_name, groupName):
+    return "results/{}/{}/{}/{}/{}/".format(lang, dataset_name, model_type, experiment_name, groupName)
 
 ###################################### Prepare training settings #########
 parser = argparse.ArgumentParser("Finetune transformer-based LM for multi-label classification")
@@ -83,8 +105,10 @@ dataset_path = args.dataset_path
 dataset_split_path = args.dataset_split_path
 LABEL_COL_NAME = args.LABEL_COL_NAME
 uncased = (args.cased == 0)
-testLangs = args.trainLanguages.split(COMMA)
+testLangs = args.testLanguages.split(COMMA)
 trainLangs = args.trainLanguages.split(COMMA)
+trainLangsLabel="_".join(testLangs)
+testLangsSet = set(trainLangs + testLangs + [trainLangsLabel])
 
 ## Architecture
 model_type = args.model_type
@@ -119,12 +143,20 @@ logfilename = EXPERIMENT_PATH + "/logs"
 Path(MODEL_PATH).mkdir(parents=True, exist_ok=True)
 Path(LR_PATH).mkdir(parents=True, exist_ok=True)
 
+for lang in testLangsSet:
+    for groupName in ["allLabels", "frequent", "low_frequent"]:
+        langExperimentPath = getLangExperimentPath(lang, dataset_name, model_type, experiment_name, groupName)
+        Path(langExperimentPath).mkdir(parents=True, exist_ok=True)
+
 ################ Finetuning ################
 # Load dataset
 df = prepareDataset(dataset_path, dataset_split_path, uncased, trainLangs, testLangs)
+
 df.fillna(EMPTY_STR, inplace=True)
 train_idx = list(df[df[SPLIT_FIELD] == TRAIN_LABEL].index)
 valid_idx = list(df[df[SPLIT_FIELD] == VALIDATION_LABEL].index)
+random.shuffle(train_idx)
+random.shuffle(valid_idx)
 
 # Load Transformer model
 model_class, tokenizer_class, config_class = MODEL_CLASSES[model_type]
@@ -153,7 +185,13 @@ allLabels=getSetOfLabels(df, LABEL_COL_NAME, None)
 newLabels=allLabels-trainLabels
 for singleLabel in newLabels:
     c2i[singleLabel] = len(c2i)
-
+    
+frequent_labels, low_frequent_labels, all_labels = splitLabels(df, LABEL_COL_NAME, c2i)
+groupLabels={
+    "allLabels":all_labels,
+    "frequent":frequent_labels,
+    "low_frequent":low_frequent_labels
+}
 
 for cycle in range(START_CYCLE, TOTAL_CYCLES + 1):
     max_lr = getByIndexOrLast(LR, cycle - 1)
@@ -167,8 +205,25 @@ for cycle in range(START_CYCLE, TOTAL_CYCLES + 1):
 
     # Evaluation
     lastSavedModel = experiment_name + "/" + str(cycle)
-    f1_val, prAtK, nDcgAtK = performEvaluation(df, c2i, learner, vocab, LABEL_COL_NAME, COLUMNS, lastSavedModel)
-    currentResults = [f1_val] + prAtK + nDcgAtK
-    with open(RESULTS_SAVEPATH, 'a') as fout:
-        fout.write(COMMA.join([str(element) for element in currentResults]) + "\n")
-    plotResults(EXPERIMENT_PATH, RESULTS_SAVEPATH)
+    for groupName in groupLabels.keys():
+        groupLabel = groupLabels[groupName]
+        for lang in testLangsSet:
+            langResutsPath=getLangResultsPath(lang, dataset_name, model_type, experiment_name, groupName)
+            langExperimentPath = getLangExperimentPath(lang, dataset_name, model_type, experiment_name, groupName)
+
+            # df lang
+            if lang==trainLangsLabel:
+                dfLang=df
+            else:
+                dfLang=df[df['lang']==lang]
+
+            if (len(dfLang)==0):
+                continue
+                
+            print(lang, len(dfLang), groupName, len(groupLabel)) 
+            
+            f1_val, prAtK, nDcgAtK = performEvaluation(dfLang, c2i, learner, vocab, LABEL_COL_NAME, COLUMNS, lastSavedModel, groupLabel)
+            currentResults = [f1_val] + prAtK + nDcgAtK
+            with open(langResutsPath, 'a') as fout:
+                fout.write(COMMA.join([str(element) for element in currentResults]) + "\n")
+            plotResults(langExperimentPath, langResutsPath)
