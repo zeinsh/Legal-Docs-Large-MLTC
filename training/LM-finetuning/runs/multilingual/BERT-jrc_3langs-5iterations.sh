@@ -2,14 +2,14 @@ export CUDA_VISIBLE_DEVICES=1
 
 project_dir="/home/zein/Legal-Docs-Large-MLTC"
 
-batch_size=8
+batch_size=4
 num_train_epochs=5
 save_total_limit=5
 save_steps=3000
-model_type="distilbert"
+model_type="bert"
 dataset_name="jrc_3langs"
 dataset_path=$project_dir"/datasets/jrc_3langs_basic.csv"
-MODEL_PATH="distilbert-base-multilingual-cased"
+MODEL_PATH="bert-base-multilingual-cased"
 
 OUTPUT_DIR="./lm-finetuned/"$dataset_name"/"$model_type"5EPOCH_LMFT"
 TRAIN_FILE=tmp/train.txt
