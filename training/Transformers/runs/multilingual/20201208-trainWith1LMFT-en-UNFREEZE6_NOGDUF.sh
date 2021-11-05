@@ -1,22 +1,25 @@
+export CUDA_VISIBLE_DEVICES=1
+
 DO_TRAIN=1
 cased=1
 
+projectDir="/home/zein/Legal-Docs-Large-MLTC"
 dataset_name="jrc_3langs"
-dataset_path='../../datasets/jrc_3langs_basic.csv'
-dataset_split_path='../../Iterative_Split/JRC_Aquis/'
-pretrained_model_name="/home/zein/Legal-Docs-Large-MLTC/training/LM-finetuning/lm-finetuned/jrc_3langs/distilbert"
+dataset_path=$projectDir'/datasets/jrc_3langs_basic.csv'
+dataset_split_path=$projectDir'/Iterative_Split/JRC_Aquis/'
+pretrained_model_name=$projectDir"/training/LM-finetuning/lm-finetuned/jrc_3langs/distilbert1EPOCH_LMFT"
 model_type="distilbert"
-
-trainLanguages="en"
-testLanguages="en"
 
 TOTAL_CYCLES=9
 N_ITERATIONS="3,3,3,3,3,3,3,3,3"
 MAX_LR="2e-04,5e-05,5e-05,5e-05,5e-05"
 MAX_LEN=768
-UNFREEZED="-2,-4,-6"
+UNFREEZED="-6"
 LABEL_COL_NAME="Descriptors" # Descriptors ExtDesc Domains MThesaurus
-experiment_name="baseline-768"
+experiment_name="1LMFTtrainen-NOGDUF-UNFREEZE6"
+
+trainLanguages="en"
+testLanguages="en,de,fr"
 
 START_CYCLE=1
 lr_find=0
@@ -35,5 +38,6 @@ then
                         --LR=$MAX_LR --MAX_LEN=$MAX_LEN \
                         --N_ITERATIONS=$N_ITERATIONS \
                         --UNFREEZED=$UNFREEZED --TOTAL_CYCLES=$TOTAL_CYCLES \
-                        --START_CYCLE=$START_CYCLE --lr_find=$lr_find
+                        --START_CYCLE=$START_CYCLE --lr_find=$lr_find \
+                        --trainLanguages=$trainLanguages --testLanguages=$testLanguages 
 fi

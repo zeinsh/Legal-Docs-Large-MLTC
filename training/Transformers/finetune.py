@@ -151,9 +151,9 @@ for lang in testLangsSet:
 ################ Finetuning ################
 # Load dataset
 df = prepareDataset(dataset_path, dataset_split_path, uncased, trainLangs, testLangs)
-
 df.fillna(EMPTY_STR, inplace=True)
 train_idx = list(df[df[SPLIT_FIELD] == TRAIN_LABEL].index)
+train_idx = [_idx for _idx in train_idx if df.iloc[_idx]['lang'] in trainLangs]
 valid_idx = list(df[df[SPLIT_FIELD] == VALIDATION_LABEL].index)
 random.shuffle(train_idx)
 random.shuffle(valid_idx)
