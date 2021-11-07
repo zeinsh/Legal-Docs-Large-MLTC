@@ -24,6 +24,8 @@ from evaluation import multi_label_precision, multi_label_recall
 
 import torch
 
+from layers import ReversalClassifier
+
 # Constants
 BERT_LABEL = 'bert'
 XLNET_LABEL = 'xlnet'
@@ -91,13 +93,28 @@ class TransformersVocab(Vocab):
 
 # defining our model architecture
 class CustomTransformerModel(nn.Module):
-    def __init__(self, transformer_model: PreTrainedModel):
+    def __init__(self, transformer_model: PreTrainedModel, adversarial_classifier=None):
         super(CustomTransformerModel, self).__init__()
         self.transformer = transformer_model
+        self.adversarial_classifier = adversarial_classifier
 
     def forward(self, input_ids, attention_mask=None):
-        logits = self.transformer(input_ids,
-                                  attention_mask=attention_mask)[0]
+        logits = self.transformer(input_ids, attention_mask=attention_mask)[0] # (bs, num_classes)
+        if self.adversarial_classifier is not None:
+            ## get distilBERT output 
+            ## pass to classifier
+            ## concatenate output with logits
+            if hasattr(self.transformer, 'distilbert'):
+                distilbert_output = self.transformer.distilbert(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask
+                )
+                hidden_state = distilbert_output[0]  # (bs, seq_len, dim)
+                pooled_output = hidden_state[:, 0]  # (bs, dim)
+                lang_logits = self.adversarial_classifier(pooled_output)  # (bs, num_langs)
+            else:
+                return logits
+            logits = torch.cat((lang_logits, logits), 1)
         return logits
 
 
@@ -206,13 +223,24 @@ def getListLayers(learner, model_type='bert'):
 
 
 def getLearner(data_clas, pretrained_model_name, model_class, config_class, use_fp16, logfilename='history',
-               append=False, model_type='bert'):
+               append=False, model_type='bert', num_languages=0, use_language_adversarial_training=False):
+    if not use_language_adversarial_training:
+        assert num_languages==0
     config = config_class.from_pretrained(pretrained_model_name)
-    config.num_labels = data_clas.train_dl.c
+    config.num_labels = data_clas.train_dl.c - num_languages # num_languages > 0 for language_adversarial_training
     config.use_bfloat16 = use_fp16
 
+    adv_input_dim = config.hidden_size
+    adv_hidden_dim = 512
+    adv_output_dim = num_languages
+    
     transformer_model = model_class.from_pretrained(pretrained_model_name, config=config)
-    custom_transformer_model = CustomTransformerModel(transformer_model=transformer_model)
+    if num_languages < 2 or not use_language_adversarial_training:
+        adversarial_classifier = None
+    else:
+        print("Create Adversarial Classifier!")
+        adversarial_classifier = ReversalClassifier(adv_input_dim, adv_hidden_dim, adv_output_dim)
+    custom_transformer_model = CustomTransformerModel(transformer_model=transformer_model, adversarial_classifier=adversarial_classifier)
 
     CustomAdamW = partial(AdamW, correct_bias=False)
 

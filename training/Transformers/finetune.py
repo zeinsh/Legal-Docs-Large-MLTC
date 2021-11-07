@@ -38,7 +38,7 @@ def getSetOfLabels(data, labelColumn, split=None):
         selected=data[data[SPLIT_FIELD]==split]
     return set(LABEL_DELIM.join(selected[labelColumn]).split(LABEL_DELIM))
 
-def splitLabels(data, label, c2i):
+def splitLabels(data, label, c2i, excluded_labels=[]):
     data=data[~data[label].isna()]
 
     # extract all labels
@@ -47,9 +47,9 @@ def splitLabels(data, label, c2i):
         for tag in data[label].iloc[i].split(';'):
             labels_dict[tag] = labels_dict.get(tag,0)+1
     
-    all_labels = [c2i[key] for key,value in labels_dict.items()]
-    frequent_labels = [c2i[key] for key,value in labels_dict.items() if value>=50]
-    low_frequent_labels = [c2i[key] for key,value in labels_dict.items() if value<50]
+    all_labels = [c2i[key] for key,value in labels_dict.items() if key not in excluded_labels]
+    frequent_labels = [c2i[key] for key,value in labels_dict.items() if value>=50 and key not in excluded_labels]
+    low_frequent_labels = [c2i[key] for key,value in labels_dict.items() if value<50 and key not in excluded_labels]
 
     return frequent_labels, low_frequent_labels, all_labels
 
@@ -68,6 +68,7 @@ parser.add_argument("--dataset_path", help="path of the dataset", type=str)
 parser.add_argument("--dataset_split_path", default="", help="path of the dataset", type=str)
 parser.add_argument("--LABEL_COL_NAME", default='Labels', help="Labels, Domain, MThesaurus, Topterm", type=str)
 parser.add_argument('--cased', default=0, help="set 1 if the model is cased", type=int)
+parser.add_argument('--use_language_adversarial_training', default=0, help="set 1 to use language adversarial trainiing", type=int)
 parser.add_argument("--trainLanguages",
                     default="en",
                     help="Languages for training separated by commas: \n"
@@ -105,6 +106,7 @@ dataset_path = args.dataset_path
 dataset_split_path = args.dataset_split_path
 LABEL_COL_NAME = args.LABEL_COL_NAME
 uncased = (args.cased == 0)
+use_language_adversarial_training = (args.use_language_adversarial_training > 0)
 testLangs = args.testLanguages.split(COMMA)
 trainLangs = args.trainLanguages.split(COMMA)
 trainLangsLabel="_".join(testLangs)
@@ -163,6 +165,15 @@ model_class, tokenizer_class, config_class = MODEL_CLASSES[model_type]
 transformer_processor = getTransformerProcecssor(tokenizer_class, pretrained_model_name, model_type, maxlen=MAX_LEN)
 pad_idx = transformer_processor[1].vocab.tokenizer.pad_token_id
 
+def extend_labels_with_language_id(w):
+    return LABEL_DELIM.join(['000000'+w['lang'],w[LABEL_COL_NAME]])
+
+if use_language_adversarial_training:
+    df[LABEL_COL_NAME]=df.apply(lambda w:extend_labels_with_language_id(w), axis=1)
+    num_of_languages = len(df['lang'].unique())
+else:
+    num_of_languages = 0 
+    
 # prepare classification data
 data_clas = (TextList.from_df(df, processor=transformer_processor, cols=TEXT_FIELD)
              .split_by_idxs(train_idx, valid_idx)
@@ -171,7 +182,7 @@ data_clas = (TextList.from_df(df, processor=transformer_processor, cols=TEXT_FIE
 
 # Get classification learner
 learner = getLearner(data_clas, pretrained_model_name, model_class, config_class, use_fp16, logfilename=logfilename,
-                     append=True, model_type=model_type)
+                     append=True, model_type=model_type,num_languages=num_of_languages,use_language_adversarial_training=use_language_adversarial_training)
 learner.save("{}/{}".format(experiment_name, 0))
 
 # Task settings (I can get rid of them)
@@ -183,10 +194,11 @@ vocab = learner.data.vocab
 trainLabels=getSetOfLabels(df, LABEL_COL_NAME, TRAIN_LABEL)
 allLabels=getSetOfLabels(df, LABEL_COL_NAME, None)
 newLabels=allLabels-trainLabels
+excluded_labels = [label for label in allLabels if label.startswith('000000')]
 for singleLabel in newLabels:
     c2i[singleLabel] = len(c2i)
     
-frequent_labels, low_frequent_labels, all_labels = splitLabels(df, LABEL_COL_NAME, c2i)
+frequent_labels, low_frequent_labels, all_labels = splitLabels(df, LABEL_COL_NAME, c2i, excluded_labels=excluded_labels)
 groupLabels={
     "allLabels":all_labels,
     "frequent":frequent_labels,
