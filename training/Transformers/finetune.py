@@ -166,7 +166,7 @@ transformer_processor = getTransformerProcecssor(tokenizer_class, pretrained_mod
 pad_idx = transformer_processor[1].vocab.tokenizer.pad_token_id
 
 def extend_labels_with_language_id(w):
-    return LABEL_DELIM.join(['000000'+w['lang'],w[LABEL_COL_NAME]])
+    return LABEL_DELIM.join(['0'*25+w['lang'],w[LABEL_COL_NAME]])
 
 if use_language_adversarial_training:
     df[LABEL_COL_NAME]=df.apply(lambda w:extend_labels_with_language_id(w), axis=1)
@@ -179,6 +179,8 @@ data_clas = (TextList.from_df(df, processor=transformer_processor, cols=TEXT_FIE
              .split_by_idxs(train_idx, valid_idx)
              .label_from_df(cols=LABEL_COL_NAME, label_delim=LABEL_DELIM)
              .databunch(bs=bs, pad_first=pad_first, pad_idx=pad_idx))
+
+num_of_languages = len([c for c in data_clas.valid_dl.c2i.keys() if c.startswith('00000')])
 
 # Get classification learner
 learner = getLearner(data_clas, pretrained_model_name, model_class, config_class, use_fp16, logfilename=logfilename,
@@ -194,9 +196,11 @@ vocab = learner.data.vocab
 trainLabels=getSetOfLabels(df, LABEL_COL_NAME, TRAIN_LABEL)
 allLabels=getSetOfLabels(df, LABEL_COL_NAME, None)
 newLabels=allLabels-trainLabels
-excluded_labels = [label for label in allLabels if label.startswith('000000')]
-for singleLabel in newLabels:
-    c2i[singleLabel] = len(c2i)
+excluded_labels = [label for label in allLabels if label.startswith('0'*25)]
+
+for singleLabel in allLabels:
+    if singleLabel not in c2i.keys():
+        c2i[singleLabel] = len(c2i)
     
 frequent_labels, low_frequent_labels, all_labels = splitLabels(df, LABEL_COL_NAME, c2i, excluded_labels=excluded_labels)
 groupLabels={
